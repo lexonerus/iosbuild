@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>iOSAppDistrib</title>
+  <style>
+    body { font-family: -apple-system, system-ui, Segoe UI, Roboto, sans-serif; margin: 24px; }
+    .box { border: 2px dashed #999; padding: 24px; border-radius: 12px; text-align: center; }
+    input[type=file] { margin-top: 12px; }
+    pre { background: #111; color: #0f0; padding: 12px; border-radius: 8px; overflow: auto; }
+  </style>
+</head>
+<body>
+  <h1>Загрузка IPA</h1>
+  <div class="box" id="drop">
+    <p>Перетащите .ipa сюда или выберите файл</p>
+    <input id="file" type="file" accept=".ipa" />
+  </div>
+  <h2>Результат</h2>
+  <pre id="out"></pre>
+
+<script>
+const out = document.getElementById("out");
+const fileInput = document.getElementById("file");
+const drop = document.getElementById("drop");
+
+async function upload(file) {
+  const form = new FormData();
+  form.append("file", file, file.name);
+  const res = await fetch("/upload", { method: "POST", body: form });
+  const json = await res.json();
+  out.textContent = JSON.stringify(json, null, 2);
+}
+
+fileInput.addEventListener("change", (e) => {
+  const f = e.target.files[0]; if (f) upload(f);
+});
+
+;["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.style.borderColor="#09f"; }));
+;["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.style.borderColor="#999"; }));
+
+drop.addEventListener("drop", e => {
+  const f = e.dataTransfer.files[0]; if (f) upload(f);
+});
+</script>
+</body>
+</html>

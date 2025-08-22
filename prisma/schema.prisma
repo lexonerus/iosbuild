@@ -1,0 +1,42 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model AppBinary {
+  id           String   @id @default(cuid())
+  filename     String
+  storagePath  String
+  sizeBytes    Int
+  bundleId     String
+  version      String
+  build        String
+  uploadedAt   DateTime @default(now())
+  signed       Boolean  @default(false)
+  links        Link[]
+}
+
+model Link {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  appId        String
+  app          AppBinary @relation(fields: [appId], references: [id])
+  expiresAt    DateTime?
+  maxInstalls  Int?
+  createdAt    DateTime @default(now())
+  stats        Stat[]
+}
+
+model Stat {
+  id         String   @id @default(cuid())
+  linkId     String
+  link       Link     @relation(fields: [linkId], references: [id])
+  type       String
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime @default(now())
+}

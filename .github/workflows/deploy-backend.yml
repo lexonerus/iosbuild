@@ -1,0 +1,58 @@
+name: Deploy Backend
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'src/**'
+      - 'prisma/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'tsconfig.json'
+      - '.github/workflows/deploy-backend.yml'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install deps and build
+        run: |
+          npm ci
+          npm run build
+
+      - name: Setup rsync and SSH
+        run: sudo apt-get update && sudo apt-get install -y rsync openssh-client
+
+      - name: Add SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf "Host target\n  HostName %s\n  User %s\n  Port %s\n  IdentityFile ~/.ssh/id_ed25519\n  StrictHostKeyChecking no\n" "$SSH_HOST" "$SSH_USER" "$SSH_PORT" > ~/.ssh/config
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+
+      - name: Rsync project (exclude dev-only)
+        run: |
+          rsync -avz \
+            --delete \
+            --exclude='.git' --exclude='node_modules' --exclude='.env' --exclude='src/uploads' \
+            ./ target:${{ secrets.APP_DIR }}/
+
+      - name: Install server deps and migrate
+        run: |
+          ssh target "cd ${{ secrets.APP_DIR }} && npm ci --omit=dev && npx prisma migrate deploy && npm run build"
+
+      - name: Restart service
+        run: ssh target "sudo systemctl restart iosappdistrib && systemctl status iosappdistrib -n 20 || true"
